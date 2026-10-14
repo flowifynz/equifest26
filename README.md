@@ -29,5 +29,5 @@ Keep `id` values unchanged so people's saved picks still match.
 ## Notes
 
 - Data was transcribed from the official A1 timetable PDF. The organisers note that sessions are subject to change.
-- Picks are saved on the device (localStorage). "Share plans" makes a link that loads both plans on another phone.
+- Picks are saved on the device (localStorage). "Share plan" makes a link that loads the plan on another phone.
 - Night show end times are not published, so calendar entries for them default to 2 hours.

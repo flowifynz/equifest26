@@ -36,6 +36,7 @@ button{cursor:pointer}
 .brand p{margin:1px 0 0;font-size:12.5px;color:var(--muted)}
 .icon-btn{width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:var(--card);display:grid;place-items:center}
 .icon-btn svg{width:22px;height:22px}
+.brandrow + .days{margin-top:8px}
 .scope{display:flex;gap:8px;margin:8px 0 8px}
 .scope button{flex:1;min-height:42px;border-radius:12px;border:2px solid var(--line);background:var(--card);
   font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 8px}
@@ -168,7 +169,6 @@ dialog::backdrop{background:rgba(10,8,40,.55)}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
     </button>
   </div>
-  <div class="scope" id="scope" role="group" aria-label="Whose plan"></div>
   <div class="days" id="days" role="tablist" aria-label="Day"></div>
 </header>
 
@@ -189,16 +189,13 @@ dialog::backdrop{background:rgba(10,8,40,.55)}
 <dialog id="settings">
   <div class="sheet">
     <h2>Settings</h2>
-    <label for="n0">First person</label><input id="n0" maxlength="14" autocomplete="off">
-    <label for="n1">Second person</label><input id="n1" maxlength="14" autocomplete="off">
     <div class="links">
       <a href="https://www.equifest.co.nz/map/" target="_blank" rel="noopener">Venue map</a>
       <a href="https://www.equifest.co.nz/timetable/" target="_blank" rel="noopener">Official timetable (check for changes)</a>
       <a href="https://www.equifest.co.nz/plan-your-visit/" target="_blank" rel="noopener">Gates and parking</a>
     </div>
     <div class="row">
-      <button class="btn danger" id="clear0"></button>
-      <button class="btn danger" id="clear1"></button>
+      <button class="btn danger" id="clear0">Clear my picks</button>
     </div>
     <div class="row"><button class="btn" id="closeSettings">Done</button></div>
   </div>
@@ -248,6 +245,8 @@ const DEF = {names:['Mum','Daughter'], picks:[[],[]], day:'fri', scope:0, last:0
 let S; try { S = Object.assign({}, DEF, JSON.parse(localStorage.getItem(KEY)||'{}')); } catch { S = {...DEF}; }
 S.picks = [0,1].map(i => (S.picks?.[i]||[]).filter(id => BY_ID[id]));
 S.names = [0,1].map(i => (S.names?.[i]||DEF.names[i]));
+// single-plan mode: fold any earlier second plan into the first
+S.picks = [[...new Set([...S.picks[0], ...S.picks[1]])], []]; S.scope = 0; S.last = 0;
 const todayIso = (() => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
 const todayDay = DAYS.find(d => d.iso === todayIso);
 if (todayDay) S.day = todayDay.k;
@@ -272,11 +271,11 @@ function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('sho
 
 function toggle(id){
   const i = active(), arr = S.picks[i], k = arr.indexOf(id), e = BY_ID[id];
-  if (k >= 0){ arr.splice(k,1); toast(`Removed from ${S.names[i]}’s plan`); }
+  if (k >= 0){ arr.splice(k,1); toast('Removed from your plan'); }
   else {
     arr.push(id);
     const c = clashes(e,i);
-    toast(c.length ? `Added, but it overlaps ${c[0].title}` : `Added to ${S.names[i]}’s plan`);
+    toast(c.length ? `Added, but it overlaps ${c[0].title}` : 'Added to your plan');
   }
   save(); render();
 }
@@ -307,7 +306,7 @@ function card(e, mode){
   const avs = who.length && (S.scope==='both' || who.some(x=>x!==i) ) ? `<div class="avs" aria-hidden="true">${who.map(x=>`<span class="av" style="--c:${PCOL[x]}">${esc(ini(x))}</span>`).join('')}</div>` : '';
   let btn = '';
   if (S.scope !== 'both') {
-    const lbl = `${picked?'Remove':'Add'} ${e.title} ${picked?'from':'to'} ${S.names[i]}’s plan`;
+    const lbl = `${picked?'Remove':'Add'} ${e.title} ${picked?'from':'to'} your plan`;
     btn = `<button class="pick" style="--who:${PCOL[i]}" data-id="${e.id}" aria-pressed="${picked}" aria-label="${esc(lbl)}">${PLUS}${CHK}</button>`;
   }
   return `<article class="card ${e.cat}${live?' now':''}${who.length===2&&S.scope==='both'?' both':''}" data-s="${e.s}">
@@ -324,10 +323,6 @@ function card(e, mode){
 
 // ---------- header ----------
 function renderHeader(){
-  const sc = $('scope');
-  const opts = [0,1].map(i => `<button style="--c:${PCOL[i]}" data-scope="${i}" aria-pressed="${S.scope===i}"><span class="dot">${esc(ini(i))}</span>${esc(S.names[i])}</button>`);
-  if (view === 'plan') opts.push(`<button data-scope="both" aria-pressed="${S.scope==='both'}">Together</button>`);
-  sc.innerHTML = opts.join('');
   const ids = S.scope === 'both' ? new Set([...S.picks[0], ...S.picks[1]]) : new Set(S.picks[S.scope]);
   $('days').innerHTML = DAYS.map(d => {
     const n = EV.filter(e => e.day===d.k && ids.has(e.id)).length;
@@ -391,7 +386,7 @@ function planList(){
 }
 function renderPlan(){
   const m = $('main'), list = planList();
-  const who = S.scope==='both' ? 'Together' : `${S.names[S.scope]}’s plan`;
+  const who = 'My plan';
   let html = `<div id="bannerSlot"></div><div class="planhead"><h2>${esc(who)}</h2><p>${list.length} session${list.length===1?'':'s'} picked`;
   if (S.scope==='both'){ const both = S.picks[0].filter(id=>S.picks[1].includes(id)).length; html += `, ${both} in common`; }
   html += `</p></div>`;
@@ -399,7 +394,7 @@ function renderPlan(){
     html += `<div class="empty"><h2>Nothing picked yet</h2><p>Go to Browse and tap the + on any session to add it here.</p><button class="btn" id="goBrowse">Browse sessions</button></div>`;
     m.innerHTML = html; showBanner(); return;
   }
-  html += `<div class="actions"><button class="btn" id="ics">Add to calendar</button><button class="btn alt" id="share">Share plans</button></div>`;
+  html += `<div class="actions"><button class="btn" id="ics">Add to calendar</button><button class="btn alt" id="share">Share plan</button></div>`;
   DAYS.forEach(d => {
     const items = list.filter(e=>e.day===d.k).sort((a,b)=>a.s-b.s || a.e-b.e);
     if (!items.length) return;
@@ -436,7 +431,7 @@ let shared = parseShared();
 function showBanner(){
   const slot = $('bannerSlot'); if (!slot) return; if (!shared){ slot.innerHTML=''; return; }
   const n = (shared.p[0]||[]).length + (shared.p[1]||[]).length;
-  slot.innerHTML = `<div class="banner"><p>Someone shared a plan with ${n} pick${n===1?'':'s'}. Replace the plans on this phone?</p><div class="row"><button class="btn" id="bYes">Use shared plan</button><button class="btn alt" id="bNo">No thanks</button></div></div>`;
+  slot.innerHTML = `<div class="banner"><p>Someone shared a plan with ${n} pick${n===1?'':'s'}. Replace your plan with it?</p><div class="row"><button class="btn" id="bYes">Use shared plan</button><button class="btn alt" id="bNo">No thanks</button></div></div>`;
 }
 function ics(list){
   const pad=n=>String(n).padStart(2,'0'), esc2=s=>String(s).replace(/([,;\\])/g,'\\$1').replace(/\n/g,'\\n');
@@ -456,7 +451,7 @@ function downloadIcs(){
   const list = planList(); if(!list.length) return;
   const blob = new Blob([ics(list)], {type:'text/calendar'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = `equifest-${S.scope==='both'?'together':S.names[S.scope].toLowerCase().replace(/\W+/g,'-')}.ics`;
+  a.download = 'equifest-plan.ics';
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
 }
 
@@ -489,19 +484,15 @@ document.addEventListener('click', ev => {
     case 'dropToggle': F.drop = !F.drop; return renderBrowse();
     case 'share': return doShare();
     case 'ics': return downloadIcs();
-    case 'bYes': S.names = [0,1].map(i=>String(shared.n?.[i]||S.names[i]).slice(0,14)); S.picks = [0,1].map(i=>(shared.p[i]||[]).filter(id=>BY_ID[id])); shared=null; history.replaceState(null,'',location.pathname); save(); toast('Shared plan loaded'); return render();
+    case 'bYes': S.picks = [[...new Set([...(shared.p[0]||[]), ...(shared.p[1]||[])])].filter(id=>BY_ID[id]), []]; shared=null; history.replaceState(null,'',location.pathname); save(); toast('Shared plan loaded'); return render();
     case 'bNo': shared=null; history.replaceState(null,'',location.pathname); return render();
-    case 'openSettings': $('n0').value=S.names[0]; $('n1').value=S.names[1]; $('clear0').textContent=`Clear ${S.names[0]}’s picks`; $('clear1').textContent=`Clear ${S.names[1]}’s picks`; return $('settings').showModal();
+    case 'openSettings': return $('settings').showModal();
     case 'closeSettings': return $('settings').close();
-    case 'clear0': case 'clear1': { const i=+t.id.slice(-1); if (confirm(`Clear all of ${S.names[i]}’s picks?`)){ S.picks[i]=[]; save(); render(); toast('Picks cleared'); } return; }
+    case 'clear0': if (confirm('Clear all your picks?')){ S.picks=[[],[]]; save(); render(); toast('Picks cleared'); } return;
   }
 });
 document.addEventListener('input', ev => {
   if (ev.target.id==='q'){ F.q = ev.target.value; renderBrowse(); }
-  if (ev.target.id==='n0' || ev.target.id==='n1'){
-    const i = +ev.target.id.slice(1); S.names[i] = ev.target.value.trim() || DEF.names[i]; save(); renderHeader();
-    $('clear'+i).textContent = `Clear ${S.names[i]}’s picks`;
-  }
 });
 document.addEventListener('change', ev => { if (ev.target.id==='arena'){ F.arena = ev.target.value; renderBrowse(); } });
 $('settings').addEventListener('close', render);
